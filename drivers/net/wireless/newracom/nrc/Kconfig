@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config NRC7394
+	tristate "Newracom NRC7394 802.11ah HaLow driver"
+	depends on MAC80211 && SPI
+	select FW_LOADER
+	help
+	  Enable support for the Newracom NRC7394 Wi-Fi HaLow (802.11ah)
+	  chipset. The driver is implemented using mac80211 and communicates
+	  with the device over the C-SPI host interface.
+
