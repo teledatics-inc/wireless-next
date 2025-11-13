@@ -65,8 +65,11 @@ moving_average_init(int size, int count,
 
 static void moving_average_deinit(struct moving_average *handle)
 {
-	BUG_ON(!handle);
-	kfree(handle);
+	if(handle) {
+		kfree(handle);
+	}
+	
+	handle = NULL;
 }
 
 static void moving_average_update(struct moving_average *ma, void *arg)
@@ -74,13 +77,17 @@ static void moving_average_update(struct moving_average *ma, void *arg)
 	int index, size;
 	uint8_t *p;
 
-	BUG_ON(!ma);
+	if (!ma) {
+		return;
+	}
 
 	index = ma->index;
 	size = ma->size;
 	p = ma->arr;
 
-	BUG_ON(!p);
+	if (!p) {
+		return;
+	}
 
 	p += index*size;
 	memcpy(p, arg, size);
@@ -94,8 +101,9 @@ static void moving_average_update(struct moving_average *ma, void *arg)
 
 static int moving_average_compute(struct moving_average *ma)
 {
-	BUG_ON(!ma);
-	BUG_ON(!ma->compute);
+	if (!ma || !ma->compute) {
+		return 0;
+	}
 	return ma->compute(ma->arr, ma->index, ma->count, ma->early);
 }
 
@@ -113,7 +121,9 @@ static int snr_compute(void *arr_t, int index, int count, bool early)
 	int sum = 0;
 	uint8_t *arr = arr_t;
 
-	BUG_ON(!arr);
+	if (!arr) {
+		return 0;
+	}
 
 	for (i = 0; i < (early && index > 2 ? index : count); i++) {
 		uint8_t snr = arr[i];
@@ -122,7 +132,10 @@ static int snr_compute(void *arr_t, int index, int count, bool early)
 		max = max(snr, max);
 		sum += snr;
 	}
-	BUG_ON(count == 2);
+	
+	if (count == 2) {
+		return 0;
+	}
 
 	if (early) {
 		if (index > 2) {
@@ -192,7 +205,9 @@ static int rssi_compute(void *arr_t, int index, int count, bool early)
 	int sum = 0;
 	int8_t *arr = arr_t;
 
-	BUG_ON(!arr);
+	if (!arr) {
+		return 0;
+	}
 
 	for (i = 0; i < (early && index > 2 ? index : count); i++) {
 		int8_t rssi = (int8_t) arr[i];
@@ -202,7 +217,9 @@ static int rssi_compute(void *arr_t, int index, int count, bool early)
 		sum += rssi;
 	}
 
-	BUG_ON(count == 2);
+	if (count == 2) {
+		return 0;
+	}
 
 	if (early) {
 		if (index > 2) {

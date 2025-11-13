@@ -103,7 +103,7 @@ void spi_reset_rx (struct nrc_hif_device *hdev);
 void spi_reset_tx (struct nrc_hif_device *hdev);
 static int spi_update_status(struct spi_device *spi);
 static void c_spi_enable_irq(struct spi_device *spi, bool enable, u8 mask);
-static void c_spi_config(struct nrc_spi_priv *priv);;
+static int c_spi_config(struct nrc_spi_priv *priv);;
 static void spi_config_fw(struct nrc_hif_device *dev);
 static void spi_enable_irq(struct nrc_hif_device *hdev);
 
@@ -1636,12 +1636,15 @@ static int spi_probe(struct nrc_hif_device *dev)
 			case 0x7292:
 			case 0x7392:
 			case 0x7394:
-				c_spi_config(priv);
+				if(c_spi_config(priv)) {
+					return -1;
+				}
+					
 				spi_set_default_credit(priv);
 				return 0;
 			default:
 				dev_err(&spi->dev, "Invalid target chip\n");
-				BUG();
+				return -1;
 		}
 	}
 	return -1;
@@ -1802,7 +1805,9 @@ static int spi_resume(struct nrc_hif_device *dev)
 			spi_read_sys_reg(spi, sys);
 
 			spi_config_fw(dev);
-			c_spi_config(priv);
+			if(c_spi_config(priv)) {
+				return -1;
+			}
 			spi_set_default_credit(priv);
 
 			spi_update_status(spi);
@@ -1822,7 +1827,9 @@ static int spi_resume(struct nrc_hif_device *dev)
 			dev->nw->drv_state = NRC_DRV_RUNNING;
 
 			//spi_config_fw(dev);
-			c_spi_config(priv);
+			if(c_spi_config(priv)) {
+				return -1;
+			}
 			spi_set_default_credit(priv);
 
 			spi_update_status(spi);
@@ -2263,7 +2270,7 @@ skip:
 	;;
 }
 
-static void c_spi_config(struct nrc_spi_priv *priv)
+static int c_spi_config(struct nrc_spi_priv *priv)
 {
 	struct spi_sys_reg *sys = &priv->hw.sys;
 
@@ -2285,7 +2292,7 @@ static void c_spi_config(struct nrc_spi_priv *priv)
 		nrc_dbg(NRC_DBG_HIF,
 			"Unknown Newracom IEEE80211 chipset %04x",
 			sys->chip_id);
-		BUG();
+		return -1;
 	}
 
 	/* maybe 4, 32 is for batman-adv, see hw->max_mtu in nrc-mac80211.c */
@@ -2301,6 +2308,8 @@ static void c_spi_config(struct nrc_spi_priv *priv)
 
 	c_spi_enable_irq(priv->spi, false, CSPI_EIRQ_A_ENABLE); /* cleanup shadow reg */
 	c_spi_enable_irq(priv->spi, priv->spi->irq >= 0 ? true : false, CSPI_EIRQ_A_ENABLE);
+	
+	return 0;
 }
 
 int nrc_cspi_gpio_alloc(struct spi_device *spi)
@@ -2483,7 +2492,11 @@ try:
 
 	spi_set_drvdata(spi, nw);
 
-	nrc_nw_set_model_conf(nw, priv->hw.sys.chip_id);
+	if(nrc_nw_set_model_conf(nw, priv->hw.sys.chip_id)){
+		dev_err(&spi->dev, "Chip ID error (%d)\n", ret);
+		goto err_nw_free;
+	}
+		
 
 	ret = nrc_nw_start(nw, false);
 	if (ret) {

@@ -799,7 +799,11 @@ static int nrc_wim_response_handler(struct nrc *nw,
 
 	mutex_lock(&nw->target_mtx);
 	wim = (struct wim *)skb->data;
-	BUG_ON(wim->cmd >= WIM_CMD_MAX);
+	
+	if(WARN_ONCE(wim->cmd >= WIM_CMD_MAX, "Invalid WIM command")) {
+		return 0;
+	}
+	
 	if (completion_done(&nw->wim_resp[wim->cmd].work)) {
 	/* No completion waiters, free the SKB */
 		dev_err(nw->dev, "no completion for wim[%d]", wim->cmd);

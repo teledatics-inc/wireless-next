@@ -612,7 +612,9 @@ struct sk_buff *nrc_xmit_wim_request_wait(struct nrc *nw,
 
 	wim = (struct wim *)skb->data;
 	cmd = wim->cmd;
-	BUG_ON(cmd >= WIM_CMD_MAX);
+	if(WARN_ONCE(cmd >= WIM_CMD_MAX, "Invalid WIM command")) {
+		return NULL;
+	}
 
 	if (!nw->wim_resp) {
 		dev_err(nw->dev, "wim response is null");
@@ -644,7 +646,9 @@ struct sk_buff *nrc_xmit_wim_request_wait(struct nrc *nw,
 	mutex_lock(&nw->target_mtx);
 	skb_resp = nw->wim_resp[cmd].skb;
 	wim = (struct wim *)skb_resp->data;
-	BUG_ON(wim->cmd != cmd);
+	if(WARN_ONCE(wim->cmd != cmd, "sk_buff error, memory corruption?")) {
+		return NULL;
+	}
 	nw->wim_resp[cmd].skb = NULL;
 	mutex_unlock(&nw->target_mtx);
 
@@ -663,7 +667,9 @@ int nrc_xmit_wim_request_and_return (struct nrc *nw,
 
 	req_wim = (struct wim *)skb->data;
 	cmd = req_wim->cmd;
-	BUG_ON(cmd >= WIM_CMD_MAX);
+	if(WARN_ONCE(cmd >= WIM_CMD_MAX, "Invalid WIM command")) {
+		goto done;
+	}
 
 	if (!nw->wim_resp) {
 		dev_err(nw->dev, "wim response is null");
@@ -712,7 +718,9 @@ int nrc_xmit_wim_request_and_return (struct nrc *nw,
 	}
 	else {
 		dev_err(nw->dev, "wim request/response different (%d vs %d\n", cmd, resp_wim->cmd);
-		BUG_ON(resp_wim->cmd != cmd);
+		if(WARN_ONCE(resp_wim->cmd != cmd, "sk_buff error, memory corruption?")) {
+			goto done;
+		}
 	}
 
 	nw->wim_resp[cmd].skb = NULL;
@@ -1023,8 +1031,8 @@ int nrc_hif_rx(struct nrc_hif_device *dev, const u8 *data, const u32 len)
 		nrc_wim_rx(nw, skb, hif->subtype);
 		break;
 	default:
+		WARN_ONCE(hif->type != HIF_TYPE_FRAME && hif->type != HIF_TYPE_WIM, "Invalid HIF type");
 		dev_kfree_skb(skb);
-		BUG();
 	}
 	return 0;
 }
@@ -1152,9 +1160,15 @@ int nrc_hif_wake_target (struct nrc_hif_device *dev, int timeout_ms)
 	unsigned int elapsed_msecs;
 #endif
 
-	BUG_ON(dev == NULL);
+	if(WARN_ONCE(dev == NULL, "Invalid parameter")) {
+		return -ENODEV;
+	}
+	
 	nw = to_nw(dev);
-	BUG_ON(nw == NULL);
+	
+	if(WARN_ONCE(nw == NULL, "Invalid nw mapping")) {
+		return -ENODEV;
+	}
 
 
 #if defined(CONFIG_DELAY_WAKE_TARGET)
@@ -1314,9 +1328,13 @@ void nrc_hif_flush_wq(struct nrc_hif_device *dev)
 {
 	struct nrc *nw;
 
-	BUG_ON(dev == NULL);
+	if(WARN_ONCE(dev == NULL, "Invalid parameter")) {
+		return;
+	}
 	nw = to_nw(dev);
-	BUG_ON(nw == NULL);
+	if(WARN_ONCE(nw == NULL, "Invalid nw mapping")) {
+		return;
+	}
 
 	nrc_hif_cleanup(dev);
 	if (nw->workqueue != NULL)

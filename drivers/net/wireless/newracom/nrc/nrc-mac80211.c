@@ -336,7 +336,7 @@ static VCMD_BACKUP_INFO *nrc_vcmd_backup_get_info_addr(u8 vif_id);
 static void nrc_vcmd_backup_del_all_entry(u8 vif_id);
 static int nrc_vcmd_backup_remove_entry(struct ieee80211_vif *vif, u8 subcmd);
 
-static void force_sw_enc_mode_by_sta_type (struct nrc *nw, struct ieee80211_vif *vif)
+static int force_sw_enc_mode_by_sta_type (struct nrc *nw, struct ieee80211_vif *vif)
 {
 	int is_relay = ((nw->vif[0] && nw->vif[1]) && (sw_enc != WIM_ENCDEC_HYBRID));
 #ifdef CONFIG_SUPPORT_IBSS
@@ -371,8 +371,10 @@ static void force_sw_enc_mode_by_sta_type (struct nrc *nw, struct ieee80211_vif 
 		default:
 			dev_err(nw->dev, "Unknown Newracom IEEE80211 chipset %04x",
 					nw->chip_id);
-			BUG();
+			return -EOPNOTSUPP;
 	}
+	
+	return 0;
 }
 
 static bool get_intf_addr(const char *intf_name, char *addr)
@@ -1235,7 +1237,7 @@ static int nrc_mac_add_interface(struct ieee80211_hw *hw,
 				vif->cab_queue = 10;
 			} else {
 				dev_err(nw->dev, "Invalid Chip ID(0x%x), queues:%d\n", nw->chip_id, nw->hw_queues);
-				BUG();
+				return -ENODEV;
 			}
 			
 		}
@@ -1259,7 +1261,7 @@ static int nrc_mac_add_interface(struct ieee80211_hw *hw,
 				vif->hw_queue[IEEE80211_AC_BE] = 5;
 				vif->hw_queue[IEEE80211_AC_BK] = 5;
 				break;
-			case 11: /* 7393 type, Use BK1, BE1,... */
+			case 11: /* 7394 type, Use BK1, BE1,... */
 				vif->hw_queue[IEEE80211_AC_VO] = 9;
 				vif->hw_queue[IEEE80211_AC_VI] = 8;
 				vif->hw_queue[IEEE80211_AC_BE] = 7;
@@ -1267,12 +1269,12 @@ static int nrc_mac_add_interface(struct ieee80211_hw *hw,
 				break;
 			default:
 				dev_err(nw->dev, "Invalid Chip ID(0x%x), queues:%d\n", nw->chip_id, nw->hw_queues);
-				BUG();
+				return -ENODEV;
 		}
 	}
 	if (i_vif->index > 1) {
 		dev_err(nw->dev, "Invalid Vif Index(%d)\n", i_vif->index);
-		BUG();
+		return -ENODEV;
 	}
 	nrc_dbg(NRC_DBG_MAC, "%s: VIF%d's hwqueue:%d", __func__, i_vif->index, nw->hw_queues);
 #endif
@@ -1329,7 +1331,10 @@ static int nrc_mac_add_interface(struct ieee80211_hw *hw,
 	else
 		nrc_wim_set_mac_addr(nw, vif);
 
-	force_sw_enc_mode_by_sta_type(nw, vif);
+	if (force_sw_enc_mode_by_sta_type(nw, vif)) {
+		return -ENODEV;
+	}
+	
 	nrc_wim_set_sta_type(nw, vif);
 	nrc_hif_resume_rx_thread(nw->hif);
 

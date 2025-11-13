@@ -184,7 +184,11 @@ int nrc_hif_exit(struct nrc_hif_device *dev);
 static inline const char *nrc_hif_name(struct nrc_hif_device *dev)
 {
 	nrc_dbg(NRC_DBG_HIF, "name()");
-	BUG_ON(!dev->hif_ops->name);
+	
+	if (!dev->hif_ops->name) {
+		return NULL;
+	}
+	
 	return dev->hif_ops->name(dev);
 }
 
@@ -207,28 +211,43 @@ static inline bool nrc_hif_check_ready(struct nrc_hif_device *dev)
 static inline int nrc_hif_probe(struct nrc_hif_device *dev)
 {
 	nrc_dbg(NRC_DBG_HIF, "probe()");
-	BUG_ON(!dev->hif_ops->probe);
+	
+	if (!dev->hif_ops->probe) {
+		return -1;
+	}
+	
 	return dev->hif_ops->probe(dev);
 }
 
 static inline int nrc_hif_start(struct nrc_hif_device *dev)
 {
 	nrc_dbg(NRC_DBG_HIF, "start()");
-	BUG_ON(!dev->hif_ops->start);
+	
+	if (!dev->hif_ops->start) {
+		dev->started = false;
+		return 0;
+	}
+	
 	if (dev->started) {
 		return 0;
 	}
+	
 	dev->started = true;
+	
 	return dev->hif_ops->start(dev);
 }
 
-static inline int nrc_hif_stop(struct nrc_hif_device *dev)
+static inline bool nrc_hif_stop(struct nrc_hif_device *dev)
 {
 	nrc_dbg(NRC_DBG_HIF, "stop()");
-	BUG_ON(!dev->hif_ops->stop);
-
-	if (!dev->started)
+	
+	if (!dev->hif_ops->stop) {
 		return 0;
+	}
+
+	if (!dev->started) {
+		return 0;
+	}
 
 	flush_work(&dev->work);
 	flush_work(&dev->ps_work);
@@ -242,7 +261,10 @@ static inline int nrc_hif_stop(struct nrc_hif_device *dev)
 static inline int nrc_hif_write(struct nrc_hif_device *dev, u8 *data, u32 len)
 {
 	/*nrc_dbg(NRC_DBG_HIF, "write(len=%d)", len);*/
-	BUG_ON(!dev->hif_ops->write);
+	if (!dev->hif_ops->write) {
+		return 0;
+	}
+	
 	return dev->hif_ops->write(dev, data, len);
 }
 
@@ -301,7 +323,10 @@ static inline int nrc_hif_resume(struct nrc_hif_device *dev)
 static inline int nrc_hif_wait_ack(struct nrc_hif_device *dev,
 		u8 *data, u32 len)
 {
-	BUG_ON(!dev->hif_ops->wait_ack);
+	if (!dev->hif_ops->wait_ack) {
+		return 0;
+	}
+	
 	return dev->hif_ops->wait_ack(dev, data, len);
 }
 

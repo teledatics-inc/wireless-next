@@ -665,6 +665,10 @@ void nrc_set_auto_ba(bool toggle)
 int nrc_nw_set_model_conf(struct nrc *nw, u16 chip_id)
 {
 	nw->chip_id = chip_id;
+	int ret = 0;
+	
+	nw->hw_queues = nw->wowlan_pattern_num = 0;
+	
 	dev_info(nw->dev, "Configuration of H/W Dependent Setting : %04x\n", nw->chip_id);
 
 	/**
@@ -683,13 +687,14 @@ int nrc_nw_set_model_conf(struct nrc *nw, u16 chip_id)
 			break;
 		default:
 			dev_err(nw->dev, "Unknown Newracom IEEE80211 chipset %04x", nw->chip_id);
-			BUG();
+			ret = -EOPNOTSUPP;
+			break;
 	}
 
 	dev_info(nw->dev, "- HW_QUEUES: %d\n", nw->hw_queues);
 	dev_info(nw->dev, "- WoWLAN Pattern num: %d\n", nw->wowlan_pattern_num);
 
-	return 0;
+	return ret;
 }
 
 /**

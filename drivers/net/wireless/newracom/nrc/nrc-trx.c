@@ -623,7 +623,7 @@ static void insert_qos_ctrl_field_in_skb(struct sk_buff *skb,
 
 	if (!skb) {
 		nrc_mac_dbg("invalid skb [%s, %d] ## \n", __func__, __LINE__);
-		BUG();
+		return;
 	}
 
 	memcpy(&fc, &mh->frame_control, sizeof(fc));

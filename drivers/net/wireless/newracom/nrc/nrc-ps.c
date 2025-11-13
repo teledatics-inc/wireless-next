@@ -38,9 +38,11 @@ static char *ps_mode_str[] = {
 
 char *nrc_ps_mode_str (enum NRC_PS_MODE mode)
 {
-    BUG_ON(mode >= NRC_PS_MAX);
+	if (mode >= NRC_PS_MAX) {
+		return "invalid PS mode";
+	}
 
-    return ps_mode_str[mode];
+	return ps_mode_str[mode];
 }
 
 int nrc_ps_set_mode (struct nrc *nw, enum NRC_PS_MODE mode, int timeout)

@@ -109,10 +109,11 @@ static bool nrc_fw_check_next_frag(struct nrc *nw, struct nrc_fw_priv *priv)
 {
 	struct nrc_hif_device *hdev = nw->hif;
 	u8 index;
-	int ret;
+	int ret = true;
 
 	if (priv->cur_chunk == (priv->num_chunks - 1)) {
-		return false;
+		ret = false;
+		goto done;
 	}
 
 	priv->cur_chunk++;
@@ -123,13 +124,18 @@ static bool nrc_fw_check_next_frag(struct nrc *nw, struct nrc_fw_priv *priv)
 
 	if (priv->ack) {
 		ret = nrc_hif_wait_ack(hdev, &index, 1);
-		BUG_ON(ret < 0);
+		if (ret < 0) {
+			
+		}
 	}
 
-	BUG_ON(index != priv->index);
+	if (index != priv->index) {
+		ret = false;
+		goto done;
+	}
 	priv->index++;
-
-	return true;
+done:
+	return ret;
 }
 
 struct nrc_fw_priv *nrc_fw_init(struct nrc *nw)
@@ -193,12 +199,16 @@ void nrc_download_fw(struct nrc *nw)
 bool nrc_check_fw_file(struct nrc *nw)
 {
 	int status;
+	int ret = true;
 
-	if (fw_name == NULL)
+	if (fw_name == NULL) {
+		ret = false;
 		goto err_fw;
+	}
 
-	if (nw->fw)
-		return true;
+	if (nw->fw) {
+		return ret;
+	}
 
 	status = request_firmware((const struct firmware **)&nw->fw,
 			fw_name, nw->dev);
@@ -218,27 +228,34 @@ bool nrc_check_fw_file(struct nrc *nw)
 
 err_fw:
 	nw->fw = NULL;
-	return false;
+	
+	return ret;
 }
 
 bool nrc_check_boot_ready(struct nrc *nw)
 {
-	BUG_ON(!nw);
-	BUG_ON(!nw->fw_priv);
+	if(!nw || !nw->fw_priv) {
+		return false;
+	}
+	
 	return (nw->fw_priv->fw_requested ||
 			nrc_hif_check_fw(nw->hif));
 }
 
 bool nrc_check_fw_ready(struct nrc *nw)
 {
-	BUG_ON(!nw);
+	if (!nw) {
+		return false;
+	}
+	
 	return (nrc_hif_check_ready(nw->hif));
 }
 
 void nrc_set_boot_ready(struct nrc *nw)
 {
-	BUG_ON(!nw);
-	BUG_ON(!nw->fw_priv);
+	if(!nw || !nw->fw_priv) {
+		return;
+	}
 
 	nw->fw_priv->fw_requested = true;
 }
