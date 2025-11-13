@@ -724,7 +724,12 @@ void nrc_wim_handle_fw_reload(struct nrc *nw)
 	atomic_set(&nw->fw_state, NRC_FW_LOADING);
 	nrc_hif_cleanup(nw->hif);
 	if (nrc_check_fw_file(nw)) {
-		nrc_download_fw(nw);
+		if(nrc_download_fw(nw)) {
+			dev_err(nw->dev, "Failed to download firmware\n");
+			atomic_set(&nw->fw_state, NRC_FW_IDLE);
+			nrc_release_fw(nw);
+			return;
+		}
 		nw->hif->hif_ops->config(nw->hif);
 		msleep(500);
 		nrc_release_fw(nw);

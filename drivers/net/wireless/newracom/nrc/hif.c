@@ -613,10 +613,12 @@ struct sk_buff *nrc_xmit_wim_request_wait(struct nrc *nw,
 	wim = (struct wim *)skb->data;
 	cmd = wim->cmd;
 	if(WARN_ONCE(cmd >= WIM_CMD_MAX, "Invalid WIM command")) {
+		mutex_unlock(&nw->target_mtx);
 		return NULL;
 	}
 
 	if (!nw->wim_resp) {
+		mutex_unlock(&nw->target_mtx);
 		dev_err(nw->dev, "wim response is null");
 		return NULL;
 	}
@@ -647,6 +649,9 @@ struct sk_buff *nrc_xmit_wim_request_wait(struct nrc *nw,
 	skb_resp = nw->wim_resp[cmd].skb;
 	wim = (struct wim *)skb_resp->data;
 	if(WARN_ONCE(wim->cmd != cmd, "sk_buff error, memory corruption?")) {
+		nw->wim_resp[cmd].skb = NULL;
+		mutex_unlock(&nw->target_mtx);
+		dev_kfree_skb(skb_resp);
 		return NULL;
 	}
 	nw->wim_resp[cmd].skb = NULL;
@@ -668,10 +673,12 @@ int nrc_xmit_wim_request_and_return (struct nrc *nw,
 	req_wim = (struct wim *)skb->data;
 	cmd = req_wim->cmd;
 	if(WARN_ONCE(cmd >= WIM_CMD_MAX, "Invalid WIM command")) {
+		mutex_unlock(&nw->target_mtx);
 		goto done;
 	}
 
 	if (!nw->wim_resp) {
+		mutex_unlock(&nw->target_mtx);
 		dev_err(nw->dev, "wim response is null");
 		goto done;
 	}
@@ -705,6 +712,7 @@ int nrc_xmit_wim_request_and_return (struct nrc *nw,
 	mutex_lock(&nw->target_mtx);
 	resp_skb = nw->wim_resp[cmd].skb;
 	if (resp_skb == NULL) {
+		mutex_unlock(&nw->target_mtx);
 		dev_err(nw->dev, "wim response null\n");
 		goto done;
 	}
@@ -718,9 +726,7 @@ int nrc_xmit_wim_request_and_return (struct nrc *nw,
 	}
 	else {
 		dev_err(nw->dev, "wim request/response different (%d vs %d\n", cmd, resp_wim->cmd);
-		if(WARN_ONCE(resp_wim->cmd != cmd, "sk_buff error, memory corruption?")) {
-			goto done;
-		}
+		WARN_ONCE(resp_wim->cmd != cmd, "sk_buff error, memory corruption?");
 	}
 
 	nw->wim_resp[cmd].skb = NULL;

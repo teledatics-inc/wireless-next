@@ -750,10 +750,12 @@ int nrc_nw_start(struct nrc *nw, bool restart)
 
 	ret = nrc_check_fw_file(nw);
 	if (ret == true) {
-		nrc_download_fw(nw);
+		if(nrc_download_fw(nw)) {
+			dev_err(nw->dev, "Failed to download firmware\n");
+			return -EINVAL;
+		}
 		nrc_release_fw(nw);
 	}
-
 
 	for (i = 0; i < MAX_FW_RETRY_CNT; i++) {
 		if(nrc_check_fw_ready(nw)) {
@@ -761,6 +763,7 @@ int nrc_nw_start(struct nrc *nw, bool restart)
 		}
 		mdelay(100);
 	}
+	
 	dev_err(nw->dev, "Failed to nrc_check_fw_ready\n");
 	return -ETIMEDOUT;
 

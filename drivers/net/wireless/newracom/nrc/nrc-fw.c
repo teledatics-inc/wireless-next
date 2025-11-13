@@ -105,14 +105,14 @@ static void nrc_fw_send_frag(struct nrc *nw, struct nrc_fw_priv *priv)
 	dev_kfree_skb(skb_fw);
 }
 
-static bool nrc_fw_check_next_frag(struct nrc *nw, struct nrc_fw_priv *priv)
+static int nrc_fw_check_next_frag(struct nrc *nw, struct nrc_fw_priv *priv)
 {
 	struct nrc_hif_device *hdev = nw->hif;
 	u8 index;
-	int ret = true;
+	int ret = 1;
 
 	if (priv->cur_chunk == (priv->num_chunks - 1)) {
-		ret = false;
+		ret = 0;
 		goto done;
 	}
 
@@ -125,12 +125,14 @@ static bool nrc_fw_check_next_frag(struct nrc *nw, struct nrc_fw_priv *priv)
 	if (priv->ack) {
 		ret = nrc_hif_wait_ack(hdev, &index, 1);
 		if (ret < 0) {
-			
+			nrc_dbg(NRC_DBG_HIF, "nrc_hif_wait_ack() returned %d", ret);
+			ret = -1;
+			goto done;
 		}
 	}
 
 	if (index != priv->index) {
-		ret = false;
+		ret = -1;
 		goto done;
 	}
 	priv->index++;
@@ -159,11 +161,12 @@ void nrc_fw_exit(struct nrc_fw_priv *priv)
 /*
  * nrc_download_fw - download firmware binary to the target
  */
-void nrc_download_fw(struct nrc *nw)
+int nrc_download_fw(struct nrc *nw)
 {
 	struct firmware *fw = nw->fw;
 	struct nrc_fw_priv *priv = nw->fw_priv;
 	struct nrc_hif_device *hdev = nw->hif;
+	int fw_ret;
 
 	nrc_dbg(NRC_DBG_HIF, "FW download....%s", fw_name);
 	priv->num_chunks = DIV_ROUND_UP(fw->size, FRAG_BYTES);
@@ -189,11 +192,20 @@ void nrc_download_fw(struct nrc *nw)
 
 	do {
 		nrc_fw_send_frag(nw, priv);
-	} while (nrc_fw_check_next_frag(nw, priv));
+	} while ((fw_ret = nrc_fw_check_next_frag(nw, priv)) && fw_ret > 0);
+	
+	if (fw_ret < 0) {
+		nrc_release_fw(nw);
+		nrc_hif_set_enable_irq(hdev);
+		priv->fw_requested = false;
+		return -1;
+	}
 
 	dev_info(nw->dev, "end FW");
-
+	nrc_hif_set_enable_irq(hdev);
 	priv->fw_requested = false;
+	
+	return 0;
 }
 
 bool nrc_check_fw_file(struct nrc *nw)
@@ -219,6 +231,7 @@ bool nrc_check_fw_file(struct nrc *nw)
 	if (status != 0) {
 		nrc_dbg(NRC_DBG_HIF, "request_firmware() is failed, status = %d, fw = %p",
 				status, nw->fw);
+		ret = false;
 		goto err_fw;
 	}
 

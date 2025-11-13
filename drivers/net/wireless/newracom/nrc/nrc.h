@@ -74,6 +74,7 @@ enum NRC_SCAN_MODE {
 	NRC_SCAN_MODE_ABORTING,
 };
 
+#define NRC_FW_IDLE					(-1)
 #define NRC_FW_ACTIVE					(0)
 #define NRC_FW_LOADING					(1)
 #define	NRC_FW_PREPARE_SLEEP			(2)

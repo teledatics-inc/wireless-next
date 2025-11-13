@@ -1055,7 +1055,11 @@ static int spi_update_status(struct spi_device *spi)
 					while downloading FW to target_rom(7292/7394) or rom_cspi(7393)*/
 				atomic_set(&nw->fw_state, NRC_FW_LOADING);
 				if (nrc_check_fw_file(nw)) {
-					nrc_download_fw(nw);
+					if(nrc_download_fw(nw)) {
+						dev_err(&spi->dev, "Firmware download failed\n");
+						atomic_set(&nw->fw_state, NRC_FW_IDLE); 
+						return -1;
+					}
 					spi_enable_irq(hdev);
 					spi_config_fw(hdev);
 					nrc_release_fw(nw);
@@ -1446,6 +1450,7 @@ static int spi_wait_ack(struct nrc_hif_device *hdev, u8 *data, u32 len)
 			return ret;
 		}
 	} while ((status.rxq_status[1] & RXQ_SLOT_COUNT) < 1);
+	
 	return 0;
 }
 
